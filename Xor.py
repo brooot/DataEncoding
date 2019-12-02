@@ -10,12 +10,10 @@ def bytes_Xor_to_bytes(b1, b2):
     return bytes(L)
 
 
-# 参数是一个字符串列表[string, string]
+# 参数是一个字节码列表[bytes, bytes]
 def bytesList_Xor_to_Bytes(Ls):
     ans = Ls[0]
     for i in range(1, len(Ls)):
         t = Ls[i]
         ans = bytes_Xor_to_bytes(ans, t)
     return ans
-
-    

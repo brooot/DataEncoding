@@ -34,6 +34,7 @@ while True:
     # if k > 1000:
     #     print("请输入一个最大为1000的数!")
     #     continue
+    # subsection_num = k
     print("发送分段大小为: ", subsection_num)
 
     # 根据分段的个数k, 确定度的概率分布
@@ -95,4 +96,3 @@ while True:
     # print("子进程的id号是: ", _pid)
     # print("退出状态是:",_status)
 
-    # 需要开启多个进程来接收数据,当数据发送过快的时候,需要解码的时间,不能及时地接收数据

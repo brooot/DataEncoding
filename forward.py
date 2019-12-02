@@ -21,6 +21,9 @@ PORT = int(sys.argv[2])
 ADDR = (IP, PORT)
 sockfd.bind(ADDR)
 
+# 转发层所有节点的地址
+forward_ADDR = ("10.1.18.255",9870)
+
 
 # 返回自己没有的码字部分
 #            {'2','3'}   b"hello"
@@ -86,19 +89,9 @@ def recursion_Decode(_info, _data):
             continue
         recursion_Decode(c_info, cw[1])
 
-
+# 在未解码中寻找能解码的
 def Redecode_in_undecoded():
     pass
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -111,7 +104,7 @@ err_num = 0
 recv_num = 0
 while True:
     # 接受数据(与tcp不同)
-    data, addr = sockfd.recvfrom(1024*4)
+    data, addr = sockfd.recvfrom(4096)
     # 如果收到的数据有丢失,就遗弃该数据
     # if len(data) < 67:
     #     continue
@@ -172,11 +165,11 @@ while True:
                 print("向源端发送ack信息 ")
                 sockfd.sendto(send_message.encode(), addr)
                 if send_time == 1:
-                    time.sleep(0.4)
+                    time.sleep(0.5)
                     send_time += 1
                 else:
                     send_time += 1
-                    time.sleep(3)
+                    time.sleep(1)
 
             os._exit(0)
         # 接受源端发来的确认信息
@@ -193,12 +186,12 @@ while True:
         with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
             data_to_save = sorted(L_decoded.items(),key=lambda x:x[0])
             for line in data_to_save:
-                print("二进制:",end='')
-                for i in line[1]:
-                    print(bin(i),end=' ')
-                print("\n")
-                print("解码内容:")
-                print(line[0],':',line[1].decode(),end="\n\n--------------------------\n")
+                # print("二进制:",end='')
+                # for i in line[1]:
+                #     print(bin(i),end=' ')
+                # print("\n")
+                # print("解码内容:")
+                # print(line[0],':',line[1].decode(),end="\n\n--------------------------\n")
                 record = line[1] + "\n".encode()
                 f.write(record)
         print("解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
