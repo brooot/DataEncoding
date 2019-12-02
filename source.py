@@ -4,6 +4,7 @@ from socket import *
 from Xor import *
 from choose_data import *
 from multiprocessing import *
+from config import *
 
 
 sockfd = socket(AF_INET, SOCK_DGRAM)
@@ -28,25 +29,21 @@ Dest_ADDR = [
 manager = Manager()  # 管理进程间共享的变量
 
 while True:
-    encoded_data = []
-    # 发送数据
-    # if m == 's':
-    # send_message(message)
-    # data_coding(source_data, m)
-    # # print(encoded_data)
-    # send_message(encoded_data)
-    k = int(input("请输入发送分段的大小："))
-    if k > 1000:
-        print("请输入一个最大为1000的数!")
-        continue
+    send_num = 0
+    # k = int(input("请输入发送分段的大小："))
+    # if k > 1000:
+    #     print("请输入一个最大为1000的数!")
+    #     continue
+    print("发送分段大小为: ", subsection_num)
 
     # 根据分段的个数k, 确定度的概率分布
-    p = get_degree_distribution(k)
+    p = get_degree_distribution(subsection_num)
     for i in range(3):
         print("%ds 后开始发送数据" % (3-i))
         time.sleep(1)
 
-    print("sending...\n")
+    t_begin = time.time()
+
 
     # 记录已经确认解码的邻居的列表
     ack_neighbor = manager.list()
@@ -76,14 +73,23 @@ while True:
     else:
         while still_need_sending.value:
             for neighbor in Dest_ADDR:
-                if len(ack_neighbor) < len(Dest_ADDR):
-                    encoded_Data = get_encoded_data(k, p)
-                    # time.sleep(0.1)
-                    sockfd.sendto(encoded_Data, neighbor)
+                if len(ack_neighbor) < len(Dest_ADDR) :
+                    if neighbor not in ack_neighbor:
+                        encoded_Data = get_encoded_data(subsection_num, p)
+                        send_num += 1
+                        time.sleep(send_delay)
+                        sockfd.sendto(encoded_Data, neighbor)
                 else:
+                    t_getAllack = time.time()
                     still_need_sending.value = False
+                    t_cahnge = time.time()
                     break
+        t_end = time.time()
         print("\n---------------------------\n接收方已经全部解码完成!\n\n")
+        print("共用时: %lf 秒" % (t_end - t_begin))
+        print("收到ack耗时%lf s" %(t_getAllack - t_begin))
+        print("延迟耗时%lf s" % (t_cahnge - t_getAllack))
+        print("共发送了 %d 个数据" % send_num)
         break
     # _pid, _status = os.wait()
     # print("子进程的id号是: ", _pid)

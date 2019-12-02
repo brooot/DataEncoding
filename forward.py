@@ -3,6 +3,7 @@
 from socket import *
 from multiprocessing import *
 from Xor import *
+from config import *
 import sys, random, os, time
 
 if len(sys.argv) < 3:
@@ -32,7 +33,7 @@ def recv_Handler(m_info_set, m_data):
     
     # print("L = ", L, "m_info_set",m_info_set)
 
-    if (not L) and len(m_info_set)>1 and m_info_set and ([m_info_set, m_data] not in L_undecoded):  # 如果没有相同的数据,表示无法解码,放入未解码的列表中
+    if (not L) and len(m_info_set)>1 and ([m_info_set, m_data] not in L_undecoded):  # 如果没有相同的数据,表示无法解码,放入未解码的列表中
         L_undecoded.append( [m_info_set, m_data] )
         # print("添加到未解码: ", [m_info_set, m_data])
 
@@ -48,6 +49,8 @@ def recv_Handler(m_info_set, m_data):
         elif m_info_set and [m_info_set, m_data] not in L_undecoded:  # 否则加入到未解码列表中
             # print("度大于1,添加到未解码: ", [m_info_set, m_data])
             L_undecoded.append( [m_info_set, m_data] )
+  
+
 
 
 #   info: '2'  data: b"hello"     码字格式: [{'2','3'},b"hello world"]
@@ -77,21 +80,47 @@ def recursion_Decode(_info, _data):
                     decode_List.append([c_info, c_data]) 
 
     for cw in decode_List:
-        if cw[0]:
+        if cw[0] and cw[1][0] != 0:
             c_info = list(cw[0])[0]
+        else:
+            continue
         recursion_Decode(c_info, cw[1])
 
 
-L_decoded = {}    # 字典   {'2':b"sunshine"}
-L_undecoded = []  # [[{'2','3'},b"hello world"], [], ..., []]   [字符串集合,字符串]
+def Redecode_in_undecoded():
+    pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+L_decoded = {}
+
+L_undecoded = []
 
 print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
-
+err_num = 0
+recv_num = 0
 while True:
     # 接受数据(与tcp不同)
-    data, addr = sockfd.recvfrom(1024)
+    data, addr = sockfd.recvfrom(1024*4)
+    # 如果收到的数据有丢失,就遗弃该数据
+    # if len(data) < 67:
+    #     continue
+
+    recv_num += 1
     # 数据解码
     data = data.decode()
+    # print("data = ", repr(data))
+    # print("数据长度: ", len(data))
     # message = "已收到来自%s的数据：%s" % (addr, data)
     # print(message)
     # 数据分割
@@ -100,75 +129,83 @@ while True:
     # 获取码字数据(字符串的字节码)
     m_data = data.split("##",1)[1].encode()
     print("收到码字数据的信息是：", m_info_set)
-    
+    if len(m_data) != 67:
+        err_num += 1
+        print("数据有丢失,长度是: ",len(m_data))
+        break
+
     print("\n")
     
-    # 获取收到的码字的结构体
-    # recvd_CodeWord = [m_info_set,m_data]
-    # 获取自己没有的
-    p_id = os.fork()
-    if p_id < 0:
-        print("进程创建失败")
-    elif p_id == 0:
-        recv_Handler(m_info_set, m_data)
 
-        print("\n未解码个数: ", len(L_undecoded))
-        print("\n")
-        print("已解码个数: ", len(L_decoded))
+    # 使用刚刚接收到的数据进行解码
+    recv_Handler(m_info_set, m_data)
 
-        print("\n------------------------------\n")
-        print("我是子进程")
-        os._exit(0)
-    else:
-        # 发送数据
-        # send_message = "已经收到您的数据。"
-        if len(L_decoded) == 100:
-            
-            print("\n\n解码完成!")
+    # 在未解码的码字中寻找解码机会
+    Redecode_in_undecoded()
+    
 
-            need_to_resend_ack = Value('i',True)
-            pid = os.fork()
-            if pid < 0:
-                print("创建进程出错")
-            # 子进程用来判断源端是否已经成功接收到ack,没有的话定时重新发送
-            elif pid == 0:
-                send_time = 1 # 第几次发送
-                while need_to_resend_ack.value:
-                    # 向源端发送 ack
-                    send_message = "ok"
-                    print("第" + str(send_time) + "次 ",end='')
-                    print("向源端发送ack信息 ")
-                    sockfd.sendto(send_message.encode(), addr)
-                    if send_time == 1:
-                        time.sleep(0.4)
-                        send_time += 1
-                    else:
-                        send_time += 1
-                        time.sleep(3)
+    print("\n未解码个数: ", len(L_undecoded))
+    print("\n")
+    print("已解码个数: ", len(L_decoded))
 
-                os._exit(0)
-            # 接受源端发来的确认信息
-            else:
-                while need_to_resend_ack.value:
-                    data, address = sockfd.recvfrom(1024)
-                    if addr == address and data.decode() == "got_it":
-                        print("发送方已经收到ack")
-                        need_to_resend_ack.value = False
-                print("\n------------------------\n一轮接收完成!\n")
+    print("\n------------------------------\n")
+    # print("我是子进程")
+    # os._exit(0)
+# else:
+    # 发送数据
+    # send_message = "已经收到您的数据。"
+    if len(L_decoded) == subsection_num:
+        
+        print("\n\n解码完成!")
 
-            print("已解码数据:")
-            # 将解码出的数据存放到txt文件中
-            with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
-                data_to_save = sorted(L_decoded.items(),key=lambda x:x[0])
-                for line in data_to_save:
-                    print(line[1])
-                    print(line[1].decode(),end="\n\n")
-                    record = line[1] + "\n".encode()
-                    f.write(record)
-            print("解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
-            # _pid, _status = os.wait()
-            # print("子进程的id号是: ", _pid)
-            # print("退出状态是:",_status)
-            break
+        need_to_resend_ack = Value('i',True)
+        pid = os.fork()
+        if pid < 0:
+            print("创建进程出错")
+        # 子进程用来判断源端是否已经成功接收到ack,没有的话定时重新发送
+        elif pid == 0:
+            send_time = 1 # 第几次发送
+            while need_to_resend_ack.value:
+                # 向源端发送 ack
+                send_message = "ok"
+                print("第" + str(send_time) + "次 ",end='')
+                print("向源端发送ack信息 ")
+                sockfd.sendto(send_message.encode(), addr)
+                if send_time == 1:
+                    time.sleep(0.4)
+                    send_time += 1
+                else:
+                    send_time += 1
+                    time.sleep(3)
 
+            os._exit(0)
+        # 接受源端发来的确认信息
+        else:
+            while need_to_resend_ack.value:
+                data, address = sockfd.recvfrom(1024)
+                if addr == address and data.decode() == "got_it":
+                    print("发送方已经收到ack")
+                    need_to_resend_ack.value = False
+            print("\n------------------------\n一轮接收完成!\n")
+
+        print("已解码数据:")
+        # 将解码出的数据存放到txt文件中
+        with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
+            data_to_save = sorted(L_decoded.items(),key=lambda x:x[0])
+            for line in data_to_save:
+                print("二进制:",end='')
+                for i in line[1]:
+                    print(bin(i),end=' ')
+                print("\n")
+                print("解码内容:")
+                print(line[0],':',line[1].decode(),end="\n\n--------------------------\n")
+                record = line[1] + "\n".encode()
+                f.write(record)
+        print("解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
+        # _pid, _status = os.wait()
+        # print("子进程的id号是: ", _pid)
+        # print("退出状态是:",_status)
+        break
+print("数据错误次数:", err_num)
+print("共收到 %d 个码字." % recv_num)
 sockfd.close()

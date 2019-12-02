@@ -63,5 +63,7 @@ def get_encoded_data(k, p):
     bytes_list = get_bytesList_of_a_generation(k)
     # 获取随机的编码度
     encode_degree = get_Degree(k, p)
+    # if encode_degree > 5:
+    #     encode_degree = 1
     print("编码度: ",encode_degree)
     return data_coding(bytes_list, encode_degree)
