@@ -19,7 +19,7 @@ sockfd = socket(AF_INET, SOCK_DGRAM)
 Dest_ADDR = [
                 ("127.0.0.1", 7000),
                 ("127.0.0.1", 8000),
-                ("127.0.0.1", 9000),
+                # ("127.0.0.1", 9000),
                 # ("127.0.0.1", 7774),
             ]
 
@@ -90,6 +90,15 @@ while True:
         _pid, _status = os.wait()
         print("子进程的id号是: ", _pid)
         print("退出状态是:",_status)
-
         break
+
+    # a = input()
+    # if a == "next":
+    #     for addr in Dest_ADDR:
+    #         sockfd.sendto("next".encode(), addr)
+    #     print("sleeping")
+    #     time.sleep(1000)
+    # else:
+    #     break
     
+sockfd.close()
