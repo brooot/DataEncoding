@@ -79,8 +79,8 @@ while True:
                     if neighbor not in ack_neighbor:
                         encoded_Data = get_encoded_data(subsection_num, p)
                         send_num += 1
-                        time.sleep(send_delay)
                         sockfd.sendto(encoded_Data, neighbor)
+                        time.sleep(send_delay)
                 else:
                     break
         t_end = time.time()

@@ -75,7 +75,7 @@ def Redecode_in_undecoded():
     pass
 
 
-def recv_from_source():
+def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
     if len(sys.argv) < 3:
         print('''
             argv is error!
@@ -85,19 +85,26 @@ def recv_from_source():
         raise
     # 创建与源通信的套接字
     sockfd = socket(AF_INET, SOCK_DGRAM)
-    # 绑定地址
-    IP = sys.argv[1]
-    PORT = int(sys.argv[2])
-    ADDR = (IP, PORT)
+    sockfd_broadcast = socket(AF_INET, SOCK_DGRAM)
     sockfd.bind(ADDR)
-    L_decoded = {}
-    L_undecoded = []
+    # 设置端口立即释放
+    sockfd.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    sockfd_broadcast.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    # 设置套接字可以发送接受广播
+    sockfd_broadcast.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     err_num = 0
     recv_num = 0
     print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
+    total_wait_time = 0
     while True:
         # 接受数据(与tcp不同)
+        t_start_wait = time.time()
         data, addr = sockfd.recvfrom(4096)
+        total_wait_time += time.time() - t_start_wait
+
+        sockfd_broadcast.sendto(data, broad_ADDR)
+        print("源端进程已经发送广播")
+
         # if data.decode() == "next":
         #     continue
         # else:
@@ -109,6 +116,8 @@ def recv_from_source():
         recv_num += 1
         # 数据解码
         data = data.decode()
+        print("收到数据:",data)
+        time.sleep(1)
         # print("data = ", repr(data))
         # print("数据长度: ", len(data))
         # message = "已收到来自%s的数据：%s" % (addr, data)
@@ -119,19 +128,14 @@ def recv_from_source():
         # 获取码字数据(字符串的字节码)
         m_data = data.split("##",1)[1].encode()
         print("收到码字数据的信息是：", m_info_set)
-        if len(m_data) != 67:
-            err_num += 1
-            print("数据有丢失,长度是: ",len(m_data))
-            break
-
         print("\n")
-        
 
         # 使用刚刚接收到的数据进行解码
-        recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-
+        with lock:
+            recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+        print("源端进程解码完毕")
         # 在未解码的码字中寻找解码机会
-        Redecode_in_undecoded()
+        # Redecode_in_undecoded()
         
 
         print("\n未解码个数: ", len(L_undecoded))
@@ -189,13 +193,15 @@ def recv_from_source():
             print("\n解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
             print("数据错误次数:", err_num)
             print("共收到 %d 个码字." % recv_num)
+            print("总共接受等待时间: %lf" % total_wait_time)
+            print("平均接受等待事件: %lf" % (total_wait_time/recv_num))
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
 
     sockfd.close()
 
 
-def forward_exchange():
+def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
     # 广播套接字
     broadcast_sockfd = socket(AF_INET, SOCK_DGRAM)
     # 设置端口立即释放
@@ -204,18 +210,48 @@ def forward_exchange():
     broadcast_sockfd.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     # 固定接受端口
     broadcast_sockfd.bind(('0.0.0.0', 9870))
-    # 设置广播目标地址
-    broadcast_dest = ("10.1.18.255", 9870)
+
+    
+
+    # 需要源端进程给一个终止信号量来终止循环
+    while  True:
+        print("转发层准备接收广播")
+        data, addr = broadcast_sockfd.recvfrom(4096)
+        if addr == self_ADDR:
+            continue
+        # 收到其他节点的广播，告知源端接受进程进行解码
+        else:
+            data = data.decode()
+            m_info_set = set(data.split("##",1)[0].split("@"))
+            # 获取码字数据(字符串的字节码)
+            m_data = data.split("##",1)[1].encode()
+            print("收到 '广播' 码字数据的信息是：", m_info_set, '\n')
+            # 使用刚刚接收到的数据进行解码
+            with lock:
+                recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+            print("转发层进程解码完毕")
 
 
 
 def main():
-    p1 = Process(target = recv_from_source)
-    # p2 = Process(target = forward_exchange)
+    # 绑定地址
+    IP = sys.argv[1]
+    PORT = int(sys.argv[2])
+    ADDR = (IP, PORT)
+    broad_ADDR = ("10.1.18.255",9870)
+
+    L_decoded = {}
+    L_undecoded = []
+    # 解码互斥锁,防止同时解码造成数据错乱
+    lock = Lock()
+    # 设置一个信号量标识是否已经解码完成
+    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock))
+    p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock))
     p1.start()
-    # p2.start()
+    p2.start()
     p1.join()
-    # p2.join()
+    p2.join()
+    print("执行main函数完毕")
 
 
 if __name__ == "__main__":
