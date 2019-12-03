@@ -7,8 +7,8 @@ from config import *
 import sys, random, os, time
 
 
-# 返回自己没有的码字部分
-#            {'2','3'}   b"hello"
+# 收到码字后,第一次处理码字,若解码出 1 度包就转到 "递归解码"
+#      数据格式   {'2','3'}   b"hello"
 def recv_Handler(m_info_set, m_data, L_decoded, L_undecoded):
     L = []
     for c_info in L_decoded.keys():  
@@ -35,8 +35,8 @@ def recv_Handler(m_info_set, m_data, L_decoded, L_undecoded):
             # print("度大于1,添加到未解码: ", [m_info_set, m_data])
             L_undecoded.append( [m_info_set, m_data] )
   
-
-#   info: '2'  data: b"hello"     码字格式: [{'2','3'},b"hello world"]
+# 递归解码
+#   info: '2'  data: b"hello"   已解码码字格式: '3':b"123456"  未解码码字格式: [{'2','3'},b"hello world"]
 def recursion_Decode(_info, _data, L_decoded, L_undecoded):
     L_decoded[_info] = _data   # 将其加入到已解码集合中
     decode_List = []  # 等待递归解码列表
@@ -70,12 +70,12 @@ def recursion_Decode(_info, _data, L_decoded, L_undecoded):
         recursion_Decode(c_info, cw[1], L_decoded, L_undecoded)
 
 
-# 在未解码中寻找能解码的
+# 在未解码列表中尝试解码
 def Redecode_in_undecoded():
     pass
 
-
-def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
+# 从转发层接收数据, 立即广播出去后进行解码
+def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all):
     if len(sys.argv) < 3:
         print('''
             argv is error!
@@ -96,6 +96,8 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
     recv_num = 0
     print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
     total_wait_time = 0
+    # 在一轮开始前,将已全部解码设置为 False
+    Has_decoded_all.value = False 
     while True:
         # 接受数据(与tcp不同)
         t_start_wait = time.time()
@@ -132,8 +134,17 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
 
         # 使用刚刚接收到的数据进行解码
         with lock:
+            print("已经开锁")
             recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-        print("源端进程解码完毕")
+
+            if len(L_decoded) == subsection_num:
+                    Has_decoded_all.value = True
+            else:
+                recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+                print("源端进程解码完毕")
+                if len(L_decoded) == subsection_num:
+                    Has_decoded_all.value = True
+                    print("\n\n解码完成!")
         # 在未解码的码字中寻找解码机会
         # Redecode_in_undecoded()
         
@@ -146,7 +157,7 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
 
         # 若解码完成
         if len(L_decoded) == subsection_num:
-            
+            Has_decoded_all.value = True
             print("\n\n解码完成!")
 
             need_to_resend_ack = Value('i',True)
@@ -200,8 +211,8 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
 
     sockfd.close()
 
-
-def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
+# 接受广播,并解码
+def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all):
     # 广播套接字
     broadcast_sockfd = socket(AF_INET, SOCK_DGRAM)
     # 设置端口立即释放
@@ -213,9 +224,9 @@ def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
 
     
 
-    # 需要源端进程给一个终止信号量来终止循环
-    while  True:
-        print("转发层准备接收广播")
+    # 如果还没有解码出一轮中所有的码字
+    while not Has_decoded_all.value:
+        print("转发层准备接收广播++++++++++++++++++++++++++++++")
         data, addr = broadcast_sockfd.recvfrom(4096)
         if addr == self_ADDR:
             continue
@@ -227,10 +238,17 @@ def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock):
             m_data = data.split("##",1)[1].encode()
             print("收到 '广播' 码字数据的信息是：", m_info_set, '\n')
             # 使用刚刚接收到的数据进行解码
+            print("需要开锁")
             with lock:
+                if len(L_decoded) == subsection_num:
+                    break
+                print("已经开锁")
                 recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-            print("转发层进程解码完毕")
-
+                if len(L_decoded) == subsection_num:
+                    Has_decoded_all.value = True
+                    print("\n\n解码完成!")
+                    print("转发层进程解码完毕")
+    print("转发层知道已经解码完成了")
 
 
 def main():
@@ -244,9 +262,10 @@ def main():
     L_undecoded = []
     # 解码互斥锁,防止同时解码造成数据错乱
     lock = Lock()
-    # 设置一个信号量标识是否已经解码完成
-    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock))
-    p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock))
+    # 设置一个信号量标识一轮是否已经解码完成
+    Has_decoded_all = Value('i',False)
+    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all))
+    p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all))
     p1.start()
     p2.start()
     p1.join()
