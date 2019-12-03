@@ -14,6 +14,8 @@ if len(sys.argv) < 3:
         ''')
     raise
 
+
+# 创建与源通信的套接字
 sockfd = socket(AF_INET, SOCK_DGRAM)
 # 绑定地址
 IP = sys.argv[1]
@@ -21,8 +23,24 @@ PORT = int(sys.argv[2])
 ADDR = (IP, PORT)
 sockfd.bind(ADDR)
 
-# 转发层所有节点的地址
-forward_ADDR = ("10.1.18.255",9870)
+
+
+# 广播套接字
+broadcast_sockfd = socket(AF_INET, SOCK_DGRAM)
+
+# 设置端口立即释放
+broadcast_sockfd.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+
+# 设置套接字可以发送接受广播
+broadcast_sockfd.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+
+# 固定接受端口
+broadcast_sockfd.bind(('0.0.0.0', 9870))
+
+# 设置广播目标地址
+broadcast_dest = ("10.1.18.255", 9870)
+
+
 
 
 # 返回自己没有的码字部分
@@ -103,6 +121,7 @@ print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
 err_num = 0
 recv_num = 0
 while True:
+
     # 接受数据(与tcp不同)
     data, addr = sockfd.recvfrom(4096)
     # 如果收到的数据有丢失,就遗弃该数据
@@ -142,11 +161,8 @@ while True:
     print("已解码个数: ", len(L_decoded))
 
     print("\n------------------------------\n")
-    # print("我是子进程")
-    # os._exit(0)
-# else:
-    # 发送数据
-    # send_message = "已经收到您的数据。"
+
+    # 若解码完成
     if len(L_decoded) == subsection_num:
         
         print("\n\n解码完成!")
@@ -171,7 +187,7 @@ while True:
                     send_time += 1
                     time.sleep(1)
 
-            os._exit(0)
+            os._exit(1)
         # 接受源端发来的确认信息
         else:
             while need_to_resend_ack.value:
@@ -180,24 +196,19 @@ while True:
                     print("发送方已经收到ack")
                     need_to_resend_ack.value = False
             print("\n------------------------\n一轮接收完成!\n")
+            _pid, _status = os.wait()
+            print("子进程的id号是: ", _pid)
+            print("退出状态是:",_status)
 
-        print("已解码数据:")
+        # print("已解码数据:")
         # 将解码出的数据存放到txt文件中
         with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
-            data_to_save = sorted(L_decoded.items(),key=lambda x:x[0])
+            data_to_save = sorted(L_decoded.items(),key=lambda x:int(x[0]))
             for line in data_to_save:
-                # print("二进制:",end='')
-                # for i in line[1]:
-                #     print(bin(i),end=' ')
-                # print("\n")
-                # print("解码内容:")
-                # print(line[0],':',line[1].decode(),end="\n\n--------------------------\n")
+                print(line[0],end=' ')
                 record = line[1] + "\n".encode()
                 f.write(record)
-        print("解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
-        # _pid, _status = os.wait()
-        # print("子进程的id号是: ", _pid)
-        # print("退出状态是:",_status)
+        print("\n解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
         break
 print("数据错误次数:", err_num)
 print("共收到 %d 个码字." % recv_num)

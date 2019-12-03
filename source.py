@@ -19,7 +19,7 @@ sockfd = socket(AF_INET, SOCK_DGRAM)
 Dest_ADDR = [
                 ("127.0.0.1", 7000),
                 ("127.0.0.1", 8000),
-                # ("127.0.0.1", 7773),
+                ("127.0.0.1", 9000),
                 # ("127.0.0.1", 7774),
             ]
 
@@ -61,15 +61,16 @@ while True:
         while still_need_sending.value:
             data, addr = sockfd.recvfrom(1024)
             if data.decode() == "ok":
+                print("\n---------------------------\n收到",addr,"的ack\n---------------------------\n")
                 if addr not in ack_neighbor:
-                    print("\n---------------------------\n收到",addr,"的ack\n---------------------------\n")
                     ack_neighbor.append(addr)
-                    sockfd.sendto("got_it".encode(),addr)
-                else:
-                    print("重复收到来自", addr, "的ack")
+                    if len(ack_neighbor) == len(Dest_ADDR):
+                        still_need_sending.value = False
+                sockfd.sendto("got_it".encode(),addr)
+            
             else:
                 print("主机 %s 发来消息：%s" % (addr, data.decode()))
-        os._exit(0)
+        os._exit(1)
     # 是原来的主进程,则不断的发送编码信息,直到所有的接收端都解码
     else:
         while still_need_sending.value:
@@ -81,18 +82,14 @@ while True:
                         time.sleep(send_delay)
                         sockfd.sendto(encoded_Data, neighbor)
                 else:
-                    t_getAllack = time.time()
-                    still_need_sending.value = False
-                    t_cahnge = time.time()
                     break
         t_end = time.time()
         print("\n---------------------------\n接收方已经全部解码完成!\n\n")
         print("共用时: %lf 秒" % (t_end - t_begin))
-        print("收到ack耗时%lf s" %(t_getAllack - t_begin))
-        print("延迟耗时%lf s" % (t_cahnge - t_getAllack))
         print("共发送了 %d 个数据" % send_num)
-        break
-    # _pid, _status = os.wait()
-    # print("子进程的id号是: ", _pid)
-    # print("退出状态是:",_status)
+        _pid, _status = os.wait()
+        print("子进程的id号是: ", _pid)
+        print("退出状态是:",_status)
 
+        break
+    
