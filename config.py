@@ -5,4 +5,4 @@ subsection_num = 10
 # send_delay = 0.05
 # send_delay = 0.1
 
-send_delay = 1
+send_delay = 0.01

@@ -75,7 +75,7 @@ def Redecode_in_undecoded():
     pass
 
 # 从转发层接收数据, 立即广播出去后进行解码
-def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all):
+def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum):
     if len(sys.argv) < 3:
         print('''
             argv is error!
@@ -92,17 +92,14 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
     sockfd_broadcast.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
     # 设置套接字可以发送接受广播
     sockfd_broadcast.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    err_num = 0
-    recv_num = 0
+    recvNum.value = 0
     print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
     total_wait_time = 0
     # 在一轮开始前,将已全部解码设置为 False
-    Has_decoded_all.value = False 
+    Has_decoded_all.value = False
     while True:
         # 接受数据(与tcp不同)
-        t_start_wait = time.time()
         data, addr = sockfd.recvfrom(4096)
-        total_wait_time += time.time() - t_start_wait
 
         sockfd_broadcast.sendto(data, broad_ADDR)
         print("源端进程已经发送广播")
@@ -115,7 +112,7 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         # if len(data) < 67:
         #     continue
 
-        recv_num += 1
+        recvNum.value += 1
         # 数据解码
         data = data.decode()
         # print("收到数据:",data)
@@ -140,6 +137,11 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         #     if len(L_decoded) == subsection_num:
         #             Has_decoded_all.value = True
         #     else:
+                # pre_decoded_num = len(L_decoded)
+                # recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+                # after_decoded_num = len(L_decoded)
+                # if (after_decoded_num > pre_decoded_num):
+                #     recvNum_and_decodeNum[recvNum] = after_decoded_num # 若有新增的解码内容,就更新记录解码过程的字典 {收到的码字个数:已解码的码字个数}
         #         recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
         #         print("源端进程解码结束")
         #         if len(L_decoded) == subsection_num:
@@ -159,8 +161,6 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         if len(L_decoded) == subsection_num:
             Has_decoded_all.value = True
             print("\n\n解码完成!")
-            print("源decoded:", L_decoded)
-            print("源undecoded:", L_undecoded)
             need_to_resend_ack = Value('i',True)
             pid = os.fork()
             if pid < 0:
@@ -191,29 +191,33 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
                         need_to_resend_ack.value = False
                 print("\n------------------------\n一轮接收完成!\n")
                 _pid, _status = os.wait()
-                print("子进程的id号是: ", _pid)
-                print("退出状态是:",_status)
+                # print("子进程的id号是: ", _pid)
+                # print("退出状态是:",_status)
 
-            # print("已解码数据:")
             # 将解码出的数据存放到txt文件中
-            with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
+            with open("Decoded Data of " + str(ADDR) + ".txt",'wb') as f:
                 data_to_save = sorted(L_decoded.items(),key=lambda x:int(x[0]))
                 for line in data_to_save:
-                    print(line[0],end=' ')
                     record = line[1] + "\n".encode()
                     f.write(record)
-            print("\n解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
-            print("数据错误次数:", err_num)
-            print("共收到 %d 个码字." % recv_num)
-            print("总共接受等待时间: %lf" % total_wait_time)
-            print("平均接受等待事件: %lf" % (total_wait_time/recv_num))
+            print("\n解码数据已经存放在 Decoded Data of " + str(ADDR) + ".txt中")
+            
+            # 将解码记录写入文件中
+            with open("Decode Log of" + str(ADDR) + ".txt",'w') as f:
+                recvNum_and_decodeNum = sorted(recvNum_and_decodeNum.items(),key=lambda x:x[0])
+                for recvNum, decodedNum in recvNum_and_decodeNum:
+                    f.write("收到" + str(recvNum) + "个码字的时候共解码出了" + str(decodedNum) + "个码字.\n")
+            print("\n解码数据已经存放在 Decode Log of " + str(ADDR) + ".txt中")
+
+
+            print("共收到 %d 个码字." % recvNum)
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
 
     sockfd.close()
 
 # 接受广播,并解码
-def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all):
+def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum):
     # 广播套接字
     broadcast_sockfd = socket(AF_INET, SOCK_DGRAM)
     # 设置端口立即释放
@@ -232,29 +236,30 @@ def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_de
             continue
         # 收到其他节点的广播，告知源端接受进程进行解码
         else:
-            print("来自", addr,"的数据包")
-            print("自身地址", self_ADDR)
+            recvNum.value += 1
+            print("收到来自", addr,"的数据包")
+            # print("自身地址", self_ADDR)
             data = data.decode()
             m_info_set = set(data.split("##",1)[0].split("@"))
             # 获取码字数据(字符串的字节码)
             m_data = data.split("##",1)[1].encode()
-            print("收到 '广播' 码字数据的信息是：", m_info_set, '\n')
+            print("收到 ",addr, "的'广播' 码字数据的信息：", m_info_set, '\n')
             # 使用刚刚接收到的数据进行解码
             # print("需要开锁")
             with lock:
                 if len(L_decoded) == subsection_num:
                     break
                 # print("已经开锁")
+                pre_decoded_num = len(L_decoded)
                 recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-                print("转发层进程解码完毕")
+                after_decoded_num = len(L_decoded)
+                if (after_decoded_num > pre_decoded_num):
+                    recvNum_and_decodeNum[recvNum.value] = after_decoded_num # 若有新增的解码内容,就更新记录解码过程的字典 {收到的码字个数:已解码的码字个数}
+                # print("转发层进程解码完毕")
                 if len(L_decoded) == subsection_num:
                     Has_decoded_all.value = True
-                    print("\n\n解码完毕!!!!!!!!!!!!!!")
-    print("Has_decoded_all.value = ", Has_decoded_all.value)
-    print("转发层知道已经解码完成了")
-    print("decoded:", L_decoded)
-    print("undecoded:", L_undecoded)
-
+                    # print("\n\n解码完毕!!!!!!!!!!!!!!")
+    
 
 def main():
     # 绑定地址
@@ -265,12 +270,16 @@ def main():
 
     L_decoded = Manager().dict()
     L_undecoded = Manager().list()
+    # 记录收到的数据包的数量
+    recvNum = Value('i', 0)
+    # 记录收到的数据包数据量和解码数量的关系的字典
+    recvNum_and_decodeNum = Manager().dict()
     # 解码互斥锁,防止同时解码造成数据错乱
     lock = Lock()
     # 设置一个信号量标识一轮是否已经解码完成
     Has_decoded_all = Value('i',False)
-    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all))
-    p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all))
+    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum))
+    p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum))
     p1.start()
     p2.start()
     p1.join()
