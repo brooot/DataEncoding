@@ -102,7 +102,6 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         data, addr = sockfd.recvfrom(4096)
 
         sockfd_broadcast.sendto(data, broad_ADDR)
-        print("源端进程已经发送广播")
 
         # if data.decode() == "next":
         #     continue
@@ -126,27 +125,27 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         m_info_set = set(data.split("##",1)[0].split("@"))
         # 获取码字数据(字符串的字节码)
         m_data = data.split("##",1)[1].encode()
-        print("源进程收到：", m_info_set)
+        print("源进程发出广播：", m_info_set)
         print("\n")
 
         # 使用刚刚接收到的数据进行解码
-        # with lock:
-        #     # print("已经开锁")
-        #     recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+        with lock:
+            # print("已经开锁")
+            recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
 
-        #     if len(L_decoded) == subsection_num:
-        #             Has_decoded_all.value = True
-        #     else:
-                # pre_decoded_num = len(L_decoded)
-                # recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-                # after_decoded_num = len(L_decoded)
-                # if (after_decoded_num > pre_decoded_num):
-                #     recvNum_and_decodeNum[recvNum] = after_decoded_num # 若有新增的解码内容,就更新记录解码过程的字典 {收到的码字个数:已解码的码字个数}
-        #         recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-        #         print("源端进程解码结束")
-        #         if len(L_decoded) == subsection_num:
-        #             Has_decoded_all.value = True
-        #             print("\n\n全部解码完成!")
+            if len(L_decoded) == subsection_num:
+                    Has_decoded_all.value = True
+            else:
+                pre_decoded_num = len(L_decoded)
+                recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+                after_decoded_num = len(L_decoded)
+                if (after_decoded_num > pre_decoded_num):
+                    recvNum_and_decodeNum[recvNum] = after_decoded_num # 若有新增的解码内容,就更新记录解码过程的字典 {收到的码字个数:已解码的码字个数}
+                recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+                print("源端进程解码结束")
+                if len(L_decoded) == subsection_num:
+                    Has_decoded_all.value = True
+                    print("\n\n全部解码完成!")
         # # 在未解码的码字中寻找解码机会
         # # Redecode_in_undecoded()
         
@@ -205,14 +204,12 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
             # 将解码记录写入文件中
             with open("Decode Log of" + str(ADDR) + ".txt",'w') as f:
                 recvNum_and_decodeNum = sorted(recvNum_and_decodeNum.items(),key=lambda x:x[0])
-                for recvNum, decodedNum in recvNum_and_decodeNum:
-                    f.write("收到" + str(recvNum) + "个码字的时候共解码出了" + str(decodedNum) + "个码字.\n")
-            print("\n解码数据已经存放在 Decode Log of " + str(ADDR) + ".txt中")
+                for recv_num, decoded_num in recvNum_and_decodeNum:
+                    f.write("收到" + str(recv_num) + "个码字的时候共解码出了" + str(decoded_num) + "个码字.\n")
+            print("\n解码过程信息已经存放在 Decode Log of " + str(ADDR) + ".txt中")
 
-
-            print("共收到 %d 个码字." % recvNum)
+            print("共收到%d个码字." %recvNum.value )
             break
-        # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
 
     sockfd.close()
 
@@ -232,7 +229,7 @@ def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_de
     # 如果还没有解码出一轮中所有的码字
     while not Has_decoded_all.value:
         data, addr = broadcast_sockfd.recvfrom(4096)
-        if addr == self_ADDR:
+        if addr[0] == self_ADDR[0]:
             continue
         # 收到其他节点的广播，告知源端接受进程进行解码
         else:
