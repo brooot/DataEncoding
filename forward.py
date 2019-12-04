@@ -118,8 +118,8 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         recv_num += 1
         # 数据解码
         data = data.decode()
-        print("收到数据:",data)
-        time.sleep(1)
+        # print("收到数据:",data)
+        # time.sleep(1)
         # print("data = ", repr(data))
         # print("数据长度: ", len(data))
         # message = "已收到来自%s的数据：%s" % (addr, data)
@@ -129,37 +129,38 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
         m_info_set = set(data.split("##",1)[0].split("@"))
         # 获取码字数据(字符串的字节码)
         m_data = data.split("##",1)[1].encode()
-        print("收到码字数据的信息是：", m_info_set)
+        print("源进程收到：", m_info_set)
         print("\n")
 
         # 使用刚刚接收到的数据进行解码
-        with lock:
-            print("已经开锁")
-            recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+        # with lock:
+        #     # print("已经开锁")
+        #     recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
 
-            if len(L_decoded) == subsection_num:
-                    Has_decoded_all.value = True
-            else:
-                recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
-                print("源端进程解码完毕")
-                if len(L_decoded) == subsection_num:
-                    Has_decoded_all.value = True
-                    print("\n\n解码完成!")
-        # 在未解码的码字中寻找解码机会
-        # Redecode_in_undecoded()
+        #     if len(L_decoded) == subsection_num:
+        #             Has_decoded_all.value = True
+        #     else:
+        #         recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+        #         print("源端进程解码结束")
+        #         if len(L_decoded) == subsection_num:
+        #             Has_decoded_all.value = True
+        #             print("\n\n全部解码完成!")
+        # # 在未解码的码字中寻找解码机会
+        # # Redecode_in_undecoded()
         
 
-        print("\n未解码个数: ", len(L_undecoded))
-        print("\n")
-        print("已解码个数: ", len(L_decoded))
+        # print("\n未解码个数: ", len(L_undecoded))
+        # print("\n")
+        # print("已解码个数: ", len(L_decoded))
 
-        print("\n------------------------------\n")
+        # print("\n------------------------------\n")
 
         # 若解码完成
         if len(L_decoded) == subsection_num:
             Has_decoded_all.value = True
             print("\n\n解码完成!")
-
+            print("源decoded:", L_decoded)
+            print("源undecoded:", L_undecoded)
             need_to_resend_ack = Value('i',True)
             pid = os.fork()
             if pid < 0:
@@ -226,29 +227,33 @@ def forward_exchange(self_ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_de
 
     # 如果还没有解码出一轮中所有的码字
     while not Has_decoded_all.value:
-        print("转发层准备接收广播++++++++++++++++++++++++++++++")
         data, addr = broadcast_sockfd.recvfrom(4096)
         if addr == self_ADDR:
             continue
         # 收到其他节点的广播，告知源端接受进程进行解码
         else:
+            print("来自", addr,"的数据包")
+            print("自身地址", self_ADDR)
             data = data.decode()
             m_info_set = set(data.split("##",1)[0].split("@"))
             # 获取码字数据(字符串的字节码)
             m_data = data.split("##",1)[1].encode()
             print("收到 '广播' 码字数据的信息是：", m_info_set, '\n')
             # 使用刚刚接收到的数据进行解码
-            print("需要开锁")
+            # print("需要开锁")
             with lock:
                 if len(L_decoded) == subsection_num:
                     break
-                print("已经开锁")
+                # print("已经开锁")
                 recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+                print("转发层进程解码完毕")
                 if len(L_decoded) == subsection_num:
                     Has_decoded_all.value = True
-                    print("\n\n解码完成!")
-                    print("转发层进程解码完毕")
+                    print("\n\n解码完毕!!!!!!!!!!!!!!")
+    print("Has_decoded_all.value = ", Has_decoded_all.value)
     print("转发层知道已经解码完成了")
+    print("decoded:", L_decoded)
+    print("undecoded:", L_undecoded)
 
 
 def main():
@@ -258,8 +263,8 @@ def main():
     ADDR = (IP, PORT)
     broad_ADDR = ("10.1.18.255",9870)
 
-    L_decoded = {}
-    L_undecoded = []
+    L_decoded = Manager().dict()
+    L_undecoded = Manager().list()
     # 解码互斥锁,防止同时解码造成数据错乱
     lock = Lock()
     # 设置一个信号量标识一轮是否已经解码完成
