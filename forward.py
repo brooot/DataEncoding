@@ -92,8 +92,9 @@ def recv_from_source():
     sockfd.bind(ADDR)
     L_decoded = {}
     L_undecoded = []
-    err_num = 0
+    recvNum_and_decodeNum = []
     recv_num = 0
+    decoded_num = 0
     print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
     while True:
         # 接受数据(与tcp不同)
@@ -126,12 +127,14 @@ def recv_from_source():
 
         print("\n")
         
-
         # 使用刚刚接收到的数据进行解码
         recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
+        if len(L_decoded) > decoded_num:
+            # 当解码个数有变化的时候,记录此时的接受数量与解码数量的关系
+            recvNum_and_decodeNum.append((recv_num, len(L_decoded)))
 
         # 在未解码的码字中寻找解码机会
-        Redecode_in_undecoded()
+        # Redecode_in_undecoded()
         
 
         print("\n未解码个数: ", len(L_undecoded))
@@ -175,19 +178,21 @@ def recv_from_source():
                         need_to_resend_ack.value = False
                 print("\n------------------------\n一轮接收完成!\n")
                 _pid, _status = os.wait()
-                print("子进程的id号是: ", _pid)
-                print("退出状态是:",_status)
+                # print("子进程的id号是: ", _pid)
+                # print("退出状态是:",_status)
 
             # print("已解码数据:")
             # 将解码出的数据存放到txt文件中
-            with open("encoded_data of " + str(ADDR) + ".txt",'wb') as f:
+            with open("PureFountainCode_Recv" + str(ADDR) + ".txt",'wb') as f:
                 data_to_save = sorted(L_decoded.items(),key=lambda x:int(x[0]))
                 for line in data_to_save:
-                    print(line[0],end=' ')
                     record = line[1] + "\n".encode()
                     f.write(record)
-            print("\n解码数据已经存放在 encoded_data of " + str(ADDR) + ".txt中")
-            print("数据错误次数:", err_num)
+            print("\n解码数据已经存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
+            with open("PureFountainCode_Log" + str(ADDR) + ".txt",'w') as f:
+                for i in recvNum_and_decodeNum:
+                    f.write("收到%d个码字的时候,共解码出%d个数据\n" % i)
+            print("解码过程信息存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
             print("共收到 %d 个码字." % recv_num)
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
@@ -205,7 +210,7 @@ def forward_exchange():
     # 固定接受端口
     broadcast_sockfd.bind(('0.0.0.0', 9870))
     # 设置广播目标地址
-    broadcast_dest = ("10.1.18.255", 9870)
+    # broadcast_dest = ("10.1.18.255", 9870)
 
 
 

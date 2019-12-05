@@ -17,8 +17,8 @@ sockfd = socket(AF_INET, SOCK_DGRAM)
 
 # 目的地址列表
 Dest_ADDR = [
-                ("127.0.0.1", 7000),
-                ("127.0.0.1", 8000),
+                # ("10.1.18.79", 7000),
+                ("10.1.18.44", 8000),
                 # ("127.0.0.1", 9000),
                 # ("127.0.0.1", 7774),
             ]
@@ -88,8 +88,8 @@ while True:
         print("共用时: %lf 秒" % (t_end - t_begin))
         print("共发送了 %d 个数据" % send_num)
         _pid, _status = os.wait()
-        print("子进程的id号是: ", _pid)
-        print("退出状态是:",_status)
+        # print("子进程的id号是: ", _pid)
+        # print("退出状态是:",_status)
         break
 
     # a = input()
