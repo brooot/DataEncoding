@@ -43,7 +43,6 @@ while True:
         print("%ds 后开始发送数据" % (3-i))
         time.sleep(1)
 
-    t_begin = time.time()
 
 
     # 记录已经确认解码的邻居的列表
@@ -73,6 +72,7 @@ while True:
         os._exit(1)
     # 是原来的主进程,则不断的发送编码信息,直到所有的接收端都解码
     else:
+        t_begin = time.time()
         while still_need_sending.value:
             for neighbor in Dest_ADDR:
                 if len(ack_neighbor) < len(Dest_ADDR) :
