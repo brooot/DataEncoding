@@ -51,22 +51,23 @@ def send(still_need_sending, ack_neighbor, Dest_ADDR, subsection_num, send_delay
 
 
 def main():
+    # 创建套接字
+    sockfd = socket(AF_INET, SOCK_DGRAM)
+
     # 设置id地址和端口号
-    # IP = "127.0.0.1"
-    # PORT = 6661
-    # self_ADDR = (IP, PORT)
-    # # 绑定自身地址和端口号
-    # sockfd.bind(self_ADDR)
+    IP = "127.0.0.1"
+    PORT = 6661
+    self_ADDR = (IP, PORT)
+    # 绑定自身地址和端口号
+    sockfd.bind(self_ADDR)
 
     # 目的地址列表
     Dest_ADDR = [
                     # ("10.1.18.79", 7000),
-                    ("10.1.18.44", 8000),
-                    # ("127.0.0.1", 9000),
+                    # ("10.1.18.44", 8000),
+                    ("127.0.0.1", 7001),
                     # ("127.0.0.1", 7774),
                 ]
-    # 创建套接字
-    sockfd = socket(AF_INET, SOCK_DGRAM)
 
     # 在某一条件下一直以一代数据为单位,向转发层发送喷泉码
     while True:

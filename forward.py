@@ -158,7 +158,8 @@ def recv_from_source():
         recv_Handler(m_info_set, m_data, L_decoded, L_undecoded)
         if len(L_decoded) > decoded_num:
             # 当解码个数有变化的时候,记录此时的接受数量与解码数量的关系
-            recvNum_and_decodeNum.append((recv_num, len(L_decoded)))
+            decoded_num = len(L_decoded)
+            recvNum_and_decodeNum.append((recv_num, decoded_num))
 
         # 在未解码的码字中寻找解码机会
         # Redecode_in_undecoded()
@@ -193,9 +194,10 @@ def recv_from_source():
                     record = line[1] + "\n".encode()
                     f.write(record)
             print("\n解码数据已经存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
-            with open("PureFountainCode_Log" + str(ADDR) + ".txt",'w') as f:
+
+            with open("PureFountainCode_Log" + str(ADDR) + ".txt",'wb') as f:
                 for i in recvNum_and_decodeNum:
-                    f.write("收到%d个码字的时候,共解码出%d个数据\n" % i)
+                    f.write("收到%d个码字的时候,共解码出%d个数据\n".encode() % i)
             print("解码过程信息存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
             print("共收到 %d 个码字." % recv_num)
             break
@@ -206,15 +208,10 @@ def recv_from_source():
 
 
 
-
 def main():
     p1 = Process(target = recv_from_source)
-    # p2 = Process(target = forward_exchange)
     p1.start()
-    # p2.start()
     p1.join()
-    # p2.join()
-
 
 if __name__ == "__main__":
     main()
