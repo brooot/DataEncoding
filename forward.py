@@ -75,6 +75,33 @@ def Redecode_in_undecoded():
     pass
 
 
+# 发送ack
+def send_ack(need_to_resend_ack, sockfd, addr):
+    send_time = 1 # 第几次发送
+    while need_to_resend_ack.value:
+        # 向源端发送 ack
+        send_message = "ok"
+        print("第" + str(send_time) + "次 ",end='')
+        print("向源端发送ack信息 ")
+        sockfd.sendto(send_message.encode(), addr)
+        if send_time == 1:
+            time.sleep(0.5)
+            send_time += 1
+        else:
+            send_time += 1
+            time.sleep(1)
+
+
+# 确认源端收到ack
+def confirm_ack(need_to_resend_ack, sockfd, addr):
+    while need_to_resend_ack.value:
+        data, address = sockfd.recvfrom(1024)
+        if addr == address and data.decode() == "got_it":
+            print("发送方已经收到ack")
+            need_to_resend_ack.value = False
+    print("\n------------------------\n一轮接收完成!\n")
+
+
 def recv_from_source():
     if len(sys.argv) < 3:
         print('''
@@ -149,39 +176,16 @@ def recv_from_source():
             print("\n\n解码完成!")
 
             need_to_resend_ack = Value('i',True)
-            pid = os.fork()
-            if pid < 0:
-                print("创建进程出错")
-            # 子进程用来判断源端是否已经成功接收到ack,没有的话定时重新发送
-            elif pid == 0:
-                send_time = 1 # 第几次发送
-                while need_to_resend_ack.value:
-                    # 向源端发送 ack
-                    send_message = "ok"
-                    print("第" + str(send_time) + "次 ",end='')
-                    print("向源端发送ack信息 ")
-                    sockfd.sendto(send_message.encode(), addr)
-                    if send_time == 1:
-                        time.sleep(0.5)
-                        send_time += 1
-                    else:
-                        send_time += 1
-                        time.sleep(1)
+            
+            p_send_ack = Process(target=send_ack, args=(need_to_resend_ack, sockfd, addr))
+            p_confirm_ack = Process(target=confirm_ack, args=(need_to_resend_ack, sockfd, addr))
 
-                os._exit(1)
-            # 接受源端发来的确认信息
-            else:
-                while need_to_resend_ack.value:
-                    data, address = sockfd.recvfrom(1024)
-                    if addr == address and data.decode() == "got_it":
-                        print("发送方已经收到ack")
-                        need_to_resend_ack.value = False
-                print("\n------------------------\n一轮接收完成!\n")
-                _pid, _status = os.wait()
-                # print("子进程的id号是: ", _pid)
-                # print("退出状态是:",_status)
+            p_confirm_ack.start()
+            p_send_ack.start()
 
-            # print("已解码数据:")
+            p_confirm_ack.join()
+            p_send_ack.join()
+
             # 将解码出的数据存放到txt文件中
             with open("PureFountainCode_Recv" + str(ADDR) + ".txt",'wb') as f:
                 data_to_save = sorted(L_decoded.items(),key=lambda x:int(x[0]))
@@ -200,17 +204,6 @@ def recv_from_source():
     sockfd.close()
 
 
-def forward_exchange():
-    # 广播套接字
-    broadcast_sockfd = socket(AF_INET, SOCK_DGRAM)
-    # 设置端口立即释放
-    broadcast_sockfd.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-    # 设置套接字可以发送接受广播
-    broadcast_sockfd.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-    # 固定接受端口
-    broadcast_sockfd.bind(('0.0.0.0', 9870))
-    # 设置广播目标地址
-    # broadcast_dest = ("10.1.18.255", 9870)
 
 
 
