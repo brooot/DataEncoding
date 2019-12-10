@@ -126,23 +126,11 @@ def recv_from_source():
     while True:
         # 接受数据(与tcp不同)
         data, addr = sockfd.recvfrom(4096)
-        # if data.decode() == "next":
-        #     continue
-        # else:
-        #     break
-        # 如果收到的数据有丢失,就遗弃该数据
-        # if len(data) < 67:
-        #     continue
 
         recv_num += 1
         # 数据解码
         data = data.decode()
-        # print("data = ", repr(data))
-        # print("数据长度: ", len(data))
-        # message = "已收到来自%s的数据：%s" % (addr, data)
-        # print(message)
-        # 数据分割
-        # 获取码字信息集合 { '2','3' }
+        
         m_info_set = set(data.split("##",1)[0].split("@"))
         # 获取码字数据(字符串的字节码)
         m_data = data.split("##",1)[1].encode()
