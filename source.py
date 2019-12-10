@@ -25,12 +25,13 @@ def check_ack(still_need_sending, sockfd, ack_neighbor, Dest_ADDR):
 def send(still_need_sending, ack_neighbor, Dest_ADDR, subsection_num, send_delay, sockfd):
     print("发送分段大小为: ", subsection_num)
     # 根据分段的个数k, 确定度的概率分布
-    p = get_degree_distribution(subsection_num)
+    p = get_Bit_distribution(subsection_num)
     for i in range(3):
         time.sleep(1)
         print("%ds 后开始发送数据" % (3-i))
     t_begin = time.time()
     send_num = 0
+    bitMap = 
     while still_need_sending.value:
         for neighbor in Dest_ADDR:
             if len(ack_neighbor) < len(Dest_ADDR) :

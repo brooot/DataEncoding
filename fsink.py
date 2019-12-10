@@ -4,7 +4,7 @@ from socket import *
 from multiprocessing import *
 from Xor import *
 from config import *
-import sys, random, os, time
+import sys, random, time
 
 
 # 收到码字后,第一次处理码字,若解码出 1 度包就转到 "递归解码"

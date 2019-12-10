@@ -20,7 +20,7 @@ def get_bytesList_of_a_generation(k):
 
 
 # 根据分段的个数k, 确定度的概率分布
-def get_degree_distribution(k):
+def get_idealSoliton_distribution(k):
     p = {}
     p[1] = 1/k
     pre = p[1]
@@ -28,6 +28,17 @@ def get_degree_distribution(k):
         p[i] = 1/i/(i-1) + pre
         pre = p[i]
     return p  # 返回度分布的概率字典
+
+
+def get_Bit_distribution(k):
+    p = {}
+    p[1] = 1/pow(2, 1)
+    pre = p[1]
+    for i in range(2, k):
+        p[i] = 1/pow(2, i) + pre
+        pre = p[i]
+    p[k] = 1/pow(2, k-1) + p[k-1]
+
 
 
 # 获取随机的编码度
