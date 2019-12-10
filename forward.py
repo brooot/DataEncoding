@@ -121,7 +121,6 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
     sockfd_broadcast.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
     recvNum.value = 0
     print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
-    total_wait_time = 0
     # 在一轮开始前,将已全部解码设置为 False
     Has_decoded_all.value = False
     while True:
@@ -182,40 +181,6 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
 
             p_confirm_ack.join()
             p_send_ack.join()
-
-
-            
-            # pid = os.fork()
-            # if pid < 0:
-            #     print("创建进程出错")
-            # # 子进程用来判断源端是否已经成功接收到ack,没有的话定时重新发送
-            # elif pid == 0:
-            #     send_time = 1 # 第几次发送
-            #     while need_to_resend_ack.value:
-            #         # 向源端发送 ack
-            #         send_message = "ok"
-            #         print("第" + str(send_time) + "次 ",end='')
-            #         print("向源端发送ack信息 ")
-            #         sockfd.sendto(send_message.encode(), addr)
-            #         if send_time == 1:
-            #             time.sleep(0.5)
-            #             send_time += 1
-            #         else:
-            #             send_time += 1
-            #             time.sleep(1)
-
-            #     os._exit(1)
-            # # 接受源端发来的确认信息
-            # else:
-            #     while need_to_resend_ack.value:
-            #         data, address = sockfd.recvfrom(1024)
-            #         if addr == address and data.decode() == "got_it":
-            #             print("发送方已经收到ack")
-            #             need_to_resend_ack.value = False
-            #     print("\n------------------------\n一轮接收完成!\n")
-            #     _pid, _status = os.wait()
-            #     # print("子进程的id号是: ", _pid)
-            #     # print("退出状态是:",_status)
 
             # 将解码出的数据存放到txt文件中
             with open("Decoded Data of " + str(ADDR) + ".txt",'wb') as f:

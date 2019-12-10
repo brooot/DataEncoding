@@ -1,5 +1,5 @@
 #encoding=utf-8
-import sys, time, os, random
+import sys, time, random
 from socket import *
 from Xor import *
 from choose_data import *
