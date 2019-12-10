@@ -198,7 +198,7 @@ def recv_from_source():
             with open("PureFountainCode_Log" + str(ADDR) + ".txt",'wb') as f:
                 for i in recvNum_and_decodeNum:
                     f.write("收到%d个码字的时候,共解码出%d个数据\n".encode() % i)
-            print("解码过程信息存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
+            print("解码过程信息存放在 PureFountainCode_Log" + str(ADDR) + ".txt 中")
             print("共收到 %d 个码字." % recv_num)
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")

@@ -2,4 +2,4 @@
 subsection_num = 30
 
 # 发送延迟
-send_delay = 0.1
+send_delay = 0.02
