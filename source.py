@@ -55,8 +55,10 @@ def main():
     sockfd = socket(AF_INET, SOCK_DGRAM)
 
     # 设置id地址和端口号
+
     IP = "10.1.18.44"
     PORT = 6644
+
     self_ADDR = (IP, PORT)
     # 绑定自身地址和端口号
     sockfd.bind(self_ADDR)
