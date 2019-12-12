@@ -194,7 +194,7 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
             with open("Decode Log of" + str(ADDR) + ".txt",'w') as f:
                 recvNum_and_decodeNum = sorted(recvNum_and_decodeNum.items(),key=lambda x:x[0])
                 for recv_num, decoded_num in recvNum_and_decodeNum:
-                    f.write("收到" + str(recv_num) + "个码字的时候共解码出了" + str(decoded_num) + "个码字.\n")
+                    f.write("(" + str(recv_num) + "," + str(decoded_num) + "),")
             print("\n解码过程信息已经存放在 Decode Log of " + str(ADDR) + ".txt中")
 
             print("共收到%d个码字." %recvNum.value )
