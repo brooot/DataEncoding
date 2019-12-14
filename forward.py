@@ -4,7 +4,7 @@ from socket import *
 from multiprocessing import *
 from Xor import *
 from config import *
-import sys, random, os, time
+import sys, random, os, time, pymysql
 
 
 # 返回自己没有的码字部分
@@ -102,7 +102,7 @@ def confirm_ack(need_to_resend_ack, sockfd, addr):
     print("\n------------------------\n一轮接收完成!\n")
 
 
-def recv_from_source():
+def recv_from_source(db, cursor, exp_time, device_id):
     if len(sys.argv) < 3:
         print('''
             argv is error!
@@ -135,11 +135,6 @@ def recv_from_source():
         # 获取码字数据(字符串的字节码)
         m_data = data.split("##",1)[1].encode()
         print("收到码字数据的信息是：", m_info_set)
-        if len(m_data) != 67:
-            err_num += 1
-            print("数据有丢失,长度是: ",len(m_data))
-            break
-
         print("\n")
         
         # 使用刚刚接收到的数据进行解码
@@ -163,6 +158,8 @@ def recv_from_source():
         if len(L_decoded) == subsection_num:
             
             print("\n\n解码完成!")
+            if (recv_num, subsection_num) not in recvNum_and_decodeNum:
+                recvNum_and_decodeNum.append((recv_num, subsection_num))
 
             need_to_resend_ack = Value('i',True)
             
@@ -183,10 +180,21 @@ def recv_from_source():
                     f.write(record)
             print("\n解码数据已经存放在 PureFountainCode_Recv" + str(ADDR) + ".txt 中")
 
-            with open("PureFountainCode_Log" + str(ADDR) + ".txt",'wb') as f:
-                for i in recvNum_and_decodeNum:
-                    f.write("(%d, %d),".encode() % i)
-            print("解码过程信息存放在 PureFountainCode_Log" + str(ADDR) + ".txt 中")
+            decode_log = ""
+            for i in recvNum_and_decodeNum:
+                decode_log += "(%d, %d)," % i
+            # 实验次数, 设备id, 实验结果
+            content = (exp_time , device_id, decode_log)
+
+            # 插入语句
+            SQL = "insert into exp (exp_time, device_id, decode_log) values (%d,%s,'%s');" % content
+
+            # 执行插入语句
+            cursor.execute(SQL)
+
+            # 提交
+            db.commit()
+            print("解码过程信息存放在 10.1.18.79 的 FountainCode 数据库 中")
             print("共收到 %d 个码字." % recv_num)
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
@@ -197,7 +205,19 @@ def recv_from_source():
 
 
 def main():
-    p1 = Process(target = recv_from_source)
+    # 打开数据库连接
+    db = pymysql.connect(host="10.1.18.79",port=3306,user="root",passwd="chain",db="FountainCode",charset='utf8')
+     
+    # 使用 cursor() 方法创建一个游标对象 cursor
+    cursor = db.cursor()
+
+    # 获取上一次实验的实验次数
+    cursor.execute("select exp_time from exp order by id DESC limit 1;")
+    db.commit()
+    data = cursor.fetchone()
+    exp_time = data[0] + 1  # 实验次数加 1
+    device_id = sys.argv[1].split(".")[-1]
+    p1 = Process(target = recv_from_source, args=(db, cursor, exp_time, device_id))
     p1.start()
     p1.join()
 
