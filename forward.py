@@ -215,7 +215,10 @@ def main():
     cursor.execute("select exp_time from exp order by id DESC limit 1;")
     db.commit()
     data = cursor.fetchone()
-    exp_time = data[0] + 1  # 实验次数加 1
+    if data:
+        exp_time = data[0] + 1  # 实验次数加 1
+    else:
+        exp_time = 1
     device_id = sys.argv[1].split(".")[-1]
     p1 = Process(target = recv_from_source, args=(db, cursor, exp_time, device_id))
     p1.start()
