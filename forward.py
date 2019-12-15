@@ -4,7 +4,7 @@ from socket import *
 from multiprocessing import *
 from Xor import *
 from config import *
-import sys, random, os, time
+import sys, random, os, time, pymysql
 
 
 # 收到码字后,第一次处理码字,若解码出 1 度包就转到 "递归解码"
@@ -102,7 +102,7 @@ def confirm_ack(need_to_resend_ack, sockfd, addr):
 
 
 # 从转发层接收数据, 立即广播出去后进行解码
-def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum):
+def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum, db, cursor, exp_time, device_id):
     if len(sys.argv) < 3:
         print('''
             argv is error!
@@ -190,12 +190,21 @@ def recv_from_source(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded
                     f.write(record)
             print("\n解码数据已经存放在 Decoded Data of " + str(ADDR) + ".txt中")
             
-            # 将解码记录写入文件中
-            with open("Decode Log of" + str(ADDR) + ".txt",'w') as f:
-                recvNum_and_decodeNum = sorted(recvNum_and_decodeNum.items(),key=lambda x:x[0])
-                for recv_num, decoded_num in recvNum_and_decodeNum:
-                    f.write("(" + str(recv_num) + "," + str(decoded_num) + "),")
-            print("\n解码过程信息已经存放在 Decode Log of " + str(ADDR) + ".txt中")
+            decode_log = ""
+            for i in recvNum_and_decodeNum:
+                decode_log += "(%d, %d)," % i
+            # 实验次数, 设备id, 实验结果
+            content = (exp_time , device_id, decode_log)
+
+            # 插入语句
+            SQL = "insert into direct_broadcast (exp_time, device_id, decode_log) values (%d,%s,'%s');" % content
+
+            # 执行插入语句
+            cursor.execute(SQL)
+
+            # 提交
+            db.commit()
+            print("解码过程信息存放在 10.1.18.79 的数据库 中")
 
             print("共收到%d个码字." %recvNum.value )
             break
@@ -264,7 +273,22 @@ def main():
     lock = Lock()
     # 设置一个信号量标识一轮是否已经解码完成
     Has_decoded_all = Value('i',False)
-    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum))
+    # 打开数据库连接
+    db = pymysql.connect(host="10.1.18.79",port=3306,user="root",passwd="chain",db="exp_data",charset='utf8')
+     
+    # 使用 cursor() 方法创建一个游标对象 cursor
+    cursor = db.cursor()
+
+    # 获取上一次实验的实验次数
+    cursor.execute("select exp_time from direct_broadcast order by id DESC limit 1;")
+    db.commit()
+    data = cursor.fetchone()
+    if data:
+        exp_time = data[0] + 1  # 实验次数加 1
+    else:
+        exp_time = 1
+    device_id = sys.argv[1].split(".")[-1]
+    p1 = Process(target = recv_from_source, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum, db, cursor, exp_time, device_id))
     p2 = Process(target = forward_exchange, args=(ADDR, broad_ADDR, L_decoded, L_undecoded, lock, Has_decoded_all, recvNum, recvNum_and_decodeNum))
     p1.start()
     p2.start()
