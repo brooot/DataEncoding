@@ -187,7 +187,7 @@ def recv_from_source(db, cursor, exp_time, device_id):
             content = (exp_time , device_id, decode_log)
 
             # 插入语句
-            SQL = "insert into exp (exp_time, device_id, decode_log) values (%d,%s,'%s');" % content
+            SQL = "insert into FountainCode (exp_time, device_id, decode_log) values (%d,%s,'%s');" % content
 
             # 执行插入语句
             cursor.execute(SQL)
@@ -206,13 +206,13 @@ def recv_from_source(db, cursor, exp_time, device_id):
 
 def main():
     # 打开数据库连接
-    db = pymysql.connect(host="10.1.18.79",port=3306,user="root",passwd="chain",db="FountainCode",charset='utf8')
+    db = pymysql.connect(host="10.1.18.79",port=3306,user="root",passwd="chain",db="exp_data",charset='utf8')
      
     # 使用 cursor() 方法创建一个游标对象 cursor
     cursor = db.cursor()
 
     # 获取上一次实验的实验次数
-    cursor.execute("select exp_time from exp order by id DESC limit 1;")
+    cursor.execute("select exp_time from FountainCode order by id DESC limit 1;")
     db.commit()
     data = cursor.fetchone()
     if data:
