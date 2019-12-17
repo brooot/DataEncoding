@@ -7,7 +7,7 @@ from config import *
 import sys, random, os, time, pymysql
 
 
-# 返回自己没有的码字部分
+
 #            {'2','3'}   b"hello"
 def recv_Handler(m_info_set, m_data, L_decoded, L_undecoded):
     L = []
@@ -194,7 +194,7 @@ def recv_from_source(db, cursor, exp_time, device_id):
 
             # 提交
             db.commit()
-            print("解码过程信息存放在 10.1.18.79 的 FountainCode 数据库 中")
+            print("解码过程信息存放在 10.1.18.79 的数据库 中")
             print("共收到 %d 个码字." % recv_num)
             break
         # print("主机 " + ADDR[0] + ":" + str(ADDR[1]) + " 正在等待数据...\n")
