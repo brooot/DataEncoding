@@ -67,7 +67,8 @@ def recursion_Decode(_info, _data, L_decoded, L_undecoded):
             c_info = list(cw[0])[0]
         else:
             continue
-        recursion_Decode(c_info, cw[1], L_decoded, L_undecoded)
+        if c_info not in L_decoded:
+            recursion_Decode(c_info, cw[1], L_decoded, L_undecoded)
 
 
 # 在未解码列表中尝试解码
