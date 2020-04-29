@@ -1,1 +1,1 @@
-# DataEncoding
+# 在转发层使用GC编码
